@@ -2,17 +2,24 @@ import json
 
 
 class CFG:
+    """
+    Class that represents a context-free grammar (CFG).
+    """
 
     def __init__(self, json_file):
+        """
+        Constructs a CFG object by reading a json file with the expected format.
+
+        Parameters:
+            json_file: The name of which json_file we're using for construction.
+        """
         self.variables = []
         self.terminals = []
         self.productions = {}
         self.start     = ''
         self.__read_json(json_file)
 
-    """
-    Read the json that describes the CFG to set correct state of the object.
-    """
+
     def __read_json(self, json_file):
         input_file = open(json_file, 'r')
         json_data  = json.loads(input_file.read())
@@ -32,8 +39,3 @@ class CFG:
 
         input_file.close()
 
-
-a = CFG('CFG.json')
-print(a.variables)
-print(a.terminals)
-print(a.productions)
