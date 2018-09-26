@@ -1,5 +1,8 @@
-from CFG import CFG
+import json
 import os
+
+from CFG import CFG
+
 
 
 class CNF(CFG):
@@ -13,7 +16,7 @@ class CNF(CFG):
 
         Parameters:
             json_file: The name of which json_file we're using for construction.
-            generate_steps: Boolean indicating if we the constructor should
+            generate_steps: Boolean indicating if the constructor should
                             create an output file with all the steps needed
                             to convert to Chomsky normal form.
                             True generates the file, False does not.
@@ -23,12 +26,14 @@ class CNF(CFG):
         super().__init__(json_file)
         self.generate_steps = generate_steps
         self.output_file    = None
+        
         if generate_steps is True:
             # Get the file name without the path or extension (i.e. XXX.json)
             in_name  = os.path.splitext(os.path.basename(json_file))[0]
             # A simple text file will be created show casing all the steps.
-            out_name = in_name + '_steps.txt'
+            out_name = './output/' + in_name + '_steps.txt'
             self.output_file = open(out_name, 'w')
+
 
         # Perform the necessary steps to achieve Chomsky normal form.
         
@@ -62,5 +67,21 @@ class CNF(CFG):
         that can't be reached from the start symbol with the present production
         rules.
         """
+
+        
+    def write_to_json(self, filename):
+        """
+        Write the grammar which is in Chomsky normal form to a json file in the
+        format used throughout this project.
+        """
+        out_name = './output/' + filename
+        with open(out_name, 'w') as out_file:
+                data = dict()
+                data["Variables"]   = self.variables
+                data["Terminals"]   = self.terminals
+                data["Productions"] = self.productions
+                data["Start"]       = self.start
+                json.dump(data, out_file, ensure_ascii=False)
+        
 
 
