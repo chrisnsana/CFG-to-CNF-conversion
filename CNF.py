@@ -36,13 +36,14 @@ class CNF(CFG):
 
 
         # Perform the necessary steps to achieve Chomsky normal form.
+        self.__eliminate_useless_symbols()
         
 
         
 
 
     def __write_step(self, step_description):
-        # There's no output file and therefore nothing to do.
+        # There is no output file and therefore nothing to do.
         if self.output_file is None:
             return
 
@@ -60,13 +61,76 @@ class CNF(CFG):
         A -> B with A and B being variables of the grammar.
         """
 
+    def __is_non_generating(self, symbol):
+        # Recursively determine if a symbol is non-generating.
+        # Base case, there are no rules available for this symbol (key)
+
+        if symbol not in self.productions:
+            # A terminal is never non-generating
+            if symbol in self.terminals:
+                return False
+            # A variable with no rules is always non-generating.
+            elif symbol in self.variables:
+                return True
+
+        # Else there is a rule for the symbol, but it may contain other
+        # symbols that are non-generating making itself non-generating.
+
+        for rule in self.productions[symbol]:
+            generating_rule = True
+            for s in rule:
+                if s == symbol : continue
+                # If a rule contains even one non-generating symbol,
+                # the whole rule becomes non-generating.
+                if self.__is_non_generating(s) is True:
+                    generating_rule = False
+                    break
+
+            # We found one rule that does generate something for this symbol
+            # and that makes it generating.
+            if generating_rule is True:
+                return False
+
+        #No generating rules found for this symbol, so it's non-generating.
+        return True
+
+    def __eliminate_non_generating(self):
+        """
+        Eliminate all variables that never lead to any terminals.
+        """
+        for var in self.variables:
+            if not self.__is_non_generating(var):
+                #Ignore this variable, there is nothing to do for it.
+                continue
+
+            # Delete all the rules for this variable
+            self.productions.pop(var, None)
+
+            # Delete all the rules containing this variable
+            for key in self.productions:
+                for rule in self.productions[key]:
+                    if var in rule: self.productions[key].remove(rule)
+
+            # Delete the variable from list of variables.
+            self.variables.remove(var)
+
+    def __eliminate_non_reachable(self):
+        """
+        Eliminate all symbols that can't be reached from the start symbol.
+        """
+        pass
+
+
+
     def __eliminate_useless_symbols(self):
         """
         Eliminate all the useless symbols. There are two categories of useless
-        symbols: the variables that never lead to any terminals and the symbols
-        that can't be reached from the start symbol with the present production
-        rules.
+        symbols: the variables that never lead to any terminals
+        (non-generating) and the symbols that can't be reached from the start
+        symbol with the present production rules (non-reachable).
         """
+        self.__eliminate_non_generating()
+        self.__eliminate_non_reachable()
 
         
     def write_to_json(self, filename):
