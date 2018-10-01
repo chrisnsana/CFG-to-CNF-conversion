@@ -26,6 +26,7 @@ class CNF(CFG):
         super().__init__(json_file)
         self.generate_steps = generate_steps
         self.output_file    = None
+        print(self.productions)
         
         if generate_steps is True:
             # Get the file name without the path or extension (i.e. XXX.json)
@@ -94,11 +95,33 @@ class CNF(CFG):
         #No generating rules found for this symbol, so it's non-generating.
         return True
 
+    def __is_reachable(self, symbol):
+        # Recursively determine if a symbol is reachable
+        # Base case, the symbol is the start symbol or there
+        # is a rule of the form S => ...symbol...
+        if symbol == self.start:
+            return True
+        
+        if (any(symbol in rule for rule in self.productions[self.start])):
+            return True
+
+        # Else there is a rule of the form A => symbol... and we have to
+        # determine recursively if A is reachable to know if symbol is too.
+        for key, value in self.productions.items():
+            if (any(symbol in rule for rule in self.productions[key])):
+                if key == symbol : continue
+                
+                if self.__is_reachable(key):
+                    return True
+        else:
+            # No rule shows 'symbol' to be reachable.
+            return False
+
     def __eliminate_non_generating(self):
         """
         Eliminate all variables that never lead to any terminals.
         """
-        for var in self.variables:
+        for var in self.variables.copy():
             if not self.__is_non_generating(var):
                 #Ignore this variable, there is nothing to do for it.
                 continue
@@ -107,8 +130,8 @@ class CNF(CFG):
             self.productions.pop(var, None)
 
             # Delete all the rules containing this variable
-            for key in self.productions:
-                for rule in self.productions[key]:
+            for key in self.productions.copy():
+                for rule in self.productions[key].copy():
                     if var in rule: self.productions[key].remove(rule)
 
             # Delete the variable from list of variables.
@@ -118,7 +141,25 @@ class CNF(CFG):
         """
         Eliminate all symbols that can't be reached from the start symbol.
         """
-        pass
+        symbols = set().union(self.terminals, self.variables)
+        for s in symbols:
+            if self.__is_reachable(s):
+                continue
+            
+            # Delete all the rules for this symbol (if present)
+            self.productions.pop(s, None)
+
+            # Delete all the rules containing this variable
+            for key in self.productions.copy():
+                for rule in self.productions[key].copy():
+                    if s in rule: self.productions[key].remove(rule)
+
+            # Delete the symbol from the correct set
+            if s in self.variables:
+                self.variables.remove(s)
+                
+            elif s in self.terminals:
+                self.terminals.remove(s)
 
 
 
@@ -130,6 +171,7 @@ class CNF(CFG):
         symbol with the present production rules (non-reachable).
         """
         self.__eliminate_non_generating()
+        print(self.productions)
         self.__eliminate_non_reachable()
 
         
@@ -141,9 +183,16 @@ class CNF(CFG):
         out_name = './output/' + filename
         with open(out_name, 'w') as out_file:
                 data = dict()
-                data["Variables"]   = self.variables
-                data["Terminals"]   = self.terminals
-                data["Productions"] = self.productions
+                data["Variables"]   = list(self.variables)
+                data["Terminals"]   = list(self.terminals)
+                list_productions    = dict()
+                # A set of tuples is not JSON serializable, so convert
+                # the productions to list of lists
+                for key, value in self.productions.items():
+                    list_value            = [list(i) for i in value]
+                    list_productions[key] = list_value
+                
+                data["Productions"] = list_productions
                 data["Start"]       = self.start
                 json.dump(data, out_file, ensure_ascii=False)
         

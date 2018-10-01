@@ -29,8 +29,8 @@ class CFG:
         try:
             json_data  = json.loads(input_file.read())
             
-            self.variables   = json_data["Variables"]
-            self.terminals   = json_data["Terminals"]
+            self.variables   = set(json_data["Variables"])
+            self.terminals   = set(json_data["Terminals"])
             json_productions = json_data["Productions"]
             self.start       = json_data["Start"]
 
@@ -38,15 +38,28 @@ class CFG:
             raise Exception('Invalid json file or invalid format for the CFG. '
                            'Refer to the example json for the correct format.')
             
-
+        # These are the only symbols that should appear in productions.
+        valid_symbols = set().union(self.variables, self.terminals)
         for entry in json_productions:
             key = entry["head"]
             val = entry["body"]
+            # Make sure all symbols used in the production are valid symbols.
+            if (all( symbol in valid_symbols for symbol in val)):
+                val = tuple(entry["body"])
+
+            else:
+                error_msg = ("The production " + key + " => " + str(val)
+                             + " contains symbol(s) that are not part of the"
+                             + " of the variables or terminals")
+                
+                raise Exception(error_msg)
+            
+            
             # Create the empty list for productions on first encounter of a key.
             if key not in self.productions:
-                self.productions[key] = []
+                self.productions[key] = set()
                 
-            self.productions[key].append(val)
+            self.productions[key].add(val)
 
         input_file.close()
 
