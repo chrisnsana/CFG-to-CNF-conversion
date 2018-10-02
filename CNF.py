@@ -1,5 +1,6 @@
 import json
 import os
+import itertools
 
 from CFG import CFG
 
@@ -26,7 +27,6 @@ class CNF(CFG):
         super().__init__(json_file)
         self.generate_steps = generate_steps
         self.output_file    = None
-        print(self.productions)
         
         if generate_steps is True:
             # Get the file name without the path or extension (i.e. XXX.json)
@@ -37,6 +37,7 @@ class CNF(CFG):
 
 
         # Perform the necessary steps to achieve Chomsky normal form.
+        self.__eliminate_epsilon_transitions()
         self.__eliminate_useless_symbols()
         
 
@@ -51,15 +52,37 @@ class CNF(CFG):
 
     def __eliminate_epsilon_transitions(self):
         """
-        Eliminate all the epsilon rules, which are rules of the form A -> Ɛ
+        Eliminate all the epsilon rules, which are rules of the form A => Ɛ
         (with A not being the start symbol of the grammar).
         """
+        nullables = []
+        for var in self.variables:
+            if self.__is_nullable(var) is True:
+                nullables.append(var)
 
+        #
+        for key in self.productions:
+            for rule in self.productions[key].copy():
+                if(any(symbol in nullables for symbol in rule)):
+                    unaffected = list(s for s in rule if s not in nullables)
+                    powerset   = self.__get_powerset(rule)
+                    new_rules  = set()
+                    for n_rule in (x for x in powerset if len(x) > 0):
+                        if (all(u in n_rule for u in unaffected)):
+                            new_rules.add(n_rule)
+
+                    # Add these newly generated rules.
+                    self.productions[key].update(new_rules)
+
+                elif len(rule) == 0:
+                    # This case deletes the rule of the form A => Ɛ
+                    self.productions[key].remove(rule)
+                
 
     def __eliminate_unit_productions(self):
         """
         Eliminate all the unit productions. These are productions of the form
-        A -> B with A and B being variables of the grammar.
+        A => B with A and B being variables of the grammar.
         """
 
     def __is_non_generating(self, symbol):
@@ -117,6 +140,35 @@ class CNF(CFG):
             # No rule shows 'symbol' to be reachable.
             return False
 
+    def __is_nullable(self, symbol):
+        # Recursively determine if a symbol is nullable
+        # Base case it's a symbol has a rule leading to epsilon like A => Ɛ.
+        if (any((len(rule) == 0) for rule in self.productions.get(symbol,[]))):
+            return True
+            
+        # Else there is a rule of the form 'symbol' => ...A...
+        # where ...A... is nullable and thus making 'symbol' nullable.
+        for rule in self.productions[symbol]:
+            nullable = True
+            for s in rule:
+                if s in self.variables and s != symbol:
+                    if self.__is_nullable(s) is False : nullable = False
+                    
+            # One of the rules leads 'symbol' to epislon, making it nullable
+            if nullable is True:
+                return True
+            
+        else:
+            return False
+
+    def __get_powerset(self, iterable):
+        # powerset([1,2,3]) --> () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)"
+        s     = list(iterable)
+        chain =  itertools.chain.from_iterable(itertools.combinations(s, r)
+                                               for r in range(len(s)+1))
+        return list(chain)
+                    
+
     def __eliminate_non_generating(self):
         """
         Eliminate all variables that never lead to any terminals.
@@ -171,7 +223,6 @@ class CNF(CFG):
         symbol with the present production rules (non-reachable).
         """
         self.__eliminate_non_generating()
-        print(self.productions)
         self.__eliminate_non_reachable()
 
         
