@@ -54,7 +54,7 @@ class CNF(CFG):
 
         self.output_file.write(step_description)
         self.output_file.write('\n')
-        # print out variables
+        # print out variables, terminals
         vars_str = 'variables: ' + str(self.variables)
         term_str = 'terminals: ' + str(self.terminals)
         prod_str = 'productions:\n'
@@ -117,7 +117,6 @@ class CNF(CFG):
                 if len(s) == 1 and s[0] in self.variables:
                     unit_pairs.append((first, s[0]))
 
-        print(unit_pairs)
         # Now loop over the complete list of unit pairs to create the
         # new productions by eliminating unit productions.
         for pair in unit_pairs:
@@ -192,10 +191,11 @@ class CNF(CFG):
         Substitute terminals in bodies of length > 1 with newly made variables.
         A => Bb will become A => BC and a new rule C => b will be added.
         """
+        seen_terminals = dict()
         for key, value in self.productions.copy().items():
             for rule in value:
                 if len(rule) > 1 and (any(r in self.terminals for r in rule)):
-                    seen_terminals = dict()
+                    
                     rule_2         = list(rule)
                     for symbol in rule_2:
                         if symbol in self.terminals :
@@ -205,9 +205,10 @@ class CNF(CFG):
                                 self.var_count += 1
                                 new_var         = "T" + str(self.var_count)
 
-                            self.var_count += 1
-                            self.variables.add(new_var)
-                            seen_terminals[symbol] = new_var
+                            if symbol not in seen_terminals:
+                                self.var_count += 1
+                                self.variables.add(new_var)
+                                seen_terminals[symbol] = new_var
 
                     for key2, value2 in seen_terminals.items():
                         self.productions[value2] = (key2,)
@@ -229,17 +230,20 @@ class CNF(CFG):
                 if len(rule) > 2:
                     var_list = list(rule)
                     left_var = key
-                    while len(var_list) > 2:
+                    while len(var_list) >= 2:
                         new_var = "T" + str(self.var_count)
                         # In the special case the variable already exists
                         while new_var in self.variables:
                             self.var_count += 1
                             new_var         = "T" + str(self.var_count)
 
-                        self.var_count += 1
-                        self.variables.add(new_var)
-                        
-                        body = (left_var, var_list[0])
+                        if len(var_list) > 2:
+                            self.var_count += 1
+                            self.variables.add(new_var)
+                            body = (var_list[0], new_var)
+                            
+                        elif len(var_list) == 2:
+                            body = (var_list[0], var_list[1])
                         if left_var not in self.productions:
                             self.productions[left_var] = set()
 
@@ -250,7 +254,7 @@ class CNF(CFG):
 
                     self.productions[key].remove(rule)
                     
-        self.__write_step('BREAKING UP BODIES OF LENGTH > 2.')
+        self.__write_step('BREAKING UP BODIES OF LENGTH > 2')
 
     def __find_nullables(self):
         nullables = []
